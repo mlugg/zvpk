@@ -64,9 +64,12 @@ pub const Vpk = struct {
         var ext_str: []const u8 = undefined;
 
         // filenames like 'foo.' should include the dot in the name part
-        if (std.mem.lastIndexOfScalar(u8, filename[0 .. filename.len - 1], '.')) |idx| {
-            file_str = filename[0..idx];
-            ext_str = filename[idx + 1 ..];
+        if (std.mem.indexOfScalar(u8, filename[0 .. filename.len - 1], '.')) |first_idx| {
+            // replicate a bug in valve's code: middle extension parts are lost.
+            // e.g. 'model.dx90.vtx' gets split into 'model' and 'vtx'
+            const last_idx = first_idx + std.mem.lastIndexOfScalar(u8, filename[first_idx .. filename.len - 1], '.').?;
+            file_str = filename[0..first_idx];
+            ext_str = filename[last_idx + 1 ..];
         } else {
             file_str = filename;
             ext_str = "";
