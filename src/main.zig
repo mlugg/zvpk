@@ -8,7 +8,13 @@ pub fn main() !void {
     var pak = vpk.Vpk.init(gpa.allocator());
     defer pak.deinit();
 
-    try addFiles(&pak, gpa.allocator(), "vpk");
+    var args = try std.process.argsWithAllocator(gpa.allocator());
+    defer args.deinit();
+
+    _ = args.skip();
+
+    const pak_dir = args.next() orelse "vpk";
+    try addFiles(&pak, gpa.allocator(), pak_dir);
 
     std.log.info("Writing output", .{});
     try pak.write(std.fs.cwd(), "pak01");

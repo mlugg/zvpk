@@ -5,6 +5,9 @@ structure.
 
 ## Usage
 
-Create a directory named `vpk/`, and place the desired contents of the archive
-into it. Run the `zvpk` binary in that folder, and it will generate files
-`pak01_dir.vpk`, `pak01_000.vpk` etc.
+`zvpk [directory]`
+
+Package all files within `directory` into a set of VPK archives `pak01_dir.vpk`,
+`pak01_000.vpk` etc.
+
+If `directory` is not given, `vpk/` is assumed.
