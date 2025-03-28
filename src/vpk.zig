@@ -63,12 +63,14 @@ pub const Vpk = struct {
         var file_str: []const u8 = undefined;
         var ext_str: []const u8 = undefined;
 
-        // filenames like 'foo.' should include the dot in the name part
-        if (std.mem.indexOfScalar(u8, filename[0 .. filename.len - 1], '.')) |first_idx| {
-            // replicate a bug in valve's code: middle extension parts are lost.
-            // e.g. 'model.dx90.vtx' gets split into 'model' and 'vtx'
-            const last_idx = first_idx + std.mem.lastIndexOfScalar(u8, filename[first_idx .. filename.len - 1], '.').?;
-            file_str = filename[0..first_idx];
+        // Ignore the last byte because filenames like 'foo.' should include the dot in the name part
+        if (std.mem.lastIndexOfScalar(u8, filename[0 .. filename.len - 1], '.')) |last_idx| {
+            // The VPK implementation that ships with Portal 2 has a bug here where filenames like
+            // 'model.dx90.vtx' ignore the middle part, and become 'model.vtx'. However, many builds
+            // of VPK lack this bug, and it does more harm than good to replicate it. In particular,
+            // it seems that the Portal 2 game files are themselves packed using a version of VPK
+            // which does *not* suffer from this bug. As such, we do not replicate it.
+            file_str = filename[0..last_idx];
             ext_str = filename[last_idx + 1 ..];
         } else {
             file_str = filename;
