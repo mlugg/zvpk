@@ -103,11 +103,11 @@ pub const Vpk = struct {
             try writeArchive(dir_file.writer(), archives[0]);
         }
 
-        for (archives[1..]) |archive, i| {
+        for (archives[1..], 0..) |archive, i| {
             var name_buf: [name.len + 8]u8 = undefined;
-            std.io.fixedBufferStream(&name_buf).writer().print("{s}_{d:0>3}.vpk", .{ name, i }) catch unreachable;
+            const name_str = std.fmt.bufPrint(&name_buf, "{s}_{d:0>3}.vpk", .{ name, i }) catch unreachable;
 
-            var f = try dir.createFile(&name_buf, .{});
+            var f = try dir.createFile(name_str, .{});
             defer f.close();
 
             try writeArchive(f.writer(), archive);
@@ -116,12 +116,12 @@ pub const Vpk = struct {
 
     fn writeDir(self: *Vpk, f: std.fs.File) ![]ArchiveWriteInfo {
         // Header
-        try f.writer().writeIntLittle(u32, 0x55aa1234); // Signature
-        try f.writer().writeIntLittle(u32, 1); // Version
+        try f.writer().writeInt(u32, 0x55aa1234, .little); // Signature
+        try f.writer().writeInt(u32, 1, .little); // Version
 
         // Write placeholder size to be filled in later
         const dir_size_pos = try f.getPos();
-        try f.writer().writeIntLittle(u32, 0);
+        try f.writer().writeInt(u32, 0, .little);
 
         // Write dir tree, tracking its size
         var counting = std.io.countingWriter(f.writer());
@@ -129,10 +129,10 @@ pub const Vpk = struct {
 
         // Overwrite dir tree size
         try f.seekTo(dir_size_pos);
-        try f.writer().writeIntLittle(u32, @intCast(u32, counting.bytes_written));
+        try f.writer().writeInt(u32, @intCast(counting.bytes_written), .little);
 
         // Skip back past dir tree
-        try f.seekBy(@intCast(i64, counting.bytes_written));
+        try f.seekBy(@intCast(counting.bytes_written));
 
         return archives;
     }
@@ -171,31 +171,31 @@ pub const Vpk = struct {
                 while (it3.next()) |file| {
                     try writeName(w, file.key_ptr.*);
 
-                    const size = @intCast(u32, file.value_ptr.data.len);
+                    const size: u32 = @intCast(file.value_ptr.data.len);
                     if (size > max_archive_size) {
                         return error.FileTooLarge;
                     }
 
                     // Go to the next archive if necessary
                     if (cur_archive_off + size > max_archive_size) {
-                        try archives.append(.{
-                            .files = cur_archive.toOwnedSlice(),
-                        });
+                        try archives.ensureUnusedCapacity(1);
+                        const files = try cur_archive.toOwnedSlice();
+                        archives.appendAssumeCapacity(.{ .files = files });
                         cur_archive_off = 0;
                     }
 
                     const archive_idx: u16 = if (archives.items.len == 0)
                         0x7FFF
                     else
-                        @intCast(u16, archives.items.len - 1);
+                        @intCast(archives.items.len - 1);
 
                     // Write the entry data
-                    try w.writeIntLittle(u32, file.value_ptr.crc);
-                    try w.writeIntLittle(u16, 0); // PreloadBytes
-                    try w.writeIntLittle(u16, archive_idx); // ArchiveIndex
-                    try w.writeIntLittle(u32, cur_archive_off); // EntryOffset
-                    try w.writeIntLittle(u32, size); // EntryLength
-                    try w.writeIntLittle(u16, 0xFFFF); // Terminator
+                    try w.writeInt(u32, file.value_ptr.crc, .little);
+                    try w.writeInt(u16, 0, .little); // PreloadBytes
+                    try w.writeInt(u16, archive_idx, .little); // ArchiveIndex
+                    try w.writeInt(u32, cur_archive_off, .little); // EntryOffset
+                    try w.writeInt(u32, size, .little); // EntryLength
+                    try w.writeInt(u16, 0xFFFF, .little); // Terminator
 
                     // Append the record to the archive
                     try cur_archive.append(.{
@@ -212,9 +212,9 @@ pub const Vpk = struct {
 
         if (cur_archive.items.len > 0) {
             // Flush final archive
-            try archives.append(.{
-                .files = cur_archive.toOwnedSlice(),
-            });
+            try archives.ensureUnusedCapacity(1);
+            const files = try cur_archive.toOwnedSlice();
+            archives.appendAssumeCapacity(.{ .files = files });
         }
 
         return archives.toOwnedSlice();

@@ -21,18 +21,18 @@ pub fn main() !void {
 }
 
 fn addFiles(pak: *vpk.Vpk, allocator: std.mem.Allocator, dir_name: []const u8) !void {
-    var dir = try std.fs.cwd().openIterableDir(dir_name, .{});
+    var dir = try std.fs.cwd().openDir(dir_name, .{ .iterate = true });
     defer dir.close();
 
     var walker = try dir.walk(allocator);
     defer walker.deinit();
 
     while (try walker.next()) |entry| {
-        if (entry.kind != .File) continue;
+        if (entry.kind != .file) continue;
 
         std.log.info("Adding file: {s}", .{entry.path});
 
-        const buf = try entry.dir.readFileAlloc(allocator, entry.basename, std.math.maxInt(usize));
+        const buf = try entry.dir.readFileAlloc(allocator, entry.basename, std.math.maxInt(u32));
         defer allocator.free(buf);
 
         try pak.addFile(entry.path, buf);
